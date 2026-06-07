@@ -219,6 +219,24 @@ arbitrary external Gmail accounts.
 
 ---
 
+## FAQ: can the service account receive email or sign up for things?
+
+**No.** A service account's address (`name@project.iam.gserviceaccount.com`) is an *identity, not a
+mailbox.* The `iam.gserviceaccount.com` domain publishes no mail records (no MX), so anything sent to
+it hard-bounces — it goes nowhere. You **cannot** use it to sign up for a service that emails a
+confirmation link, and there's no inbox to read.
+
+The Gmail API doesn't change this: it never gives a service account its own inbox. The only way an SA
+touches Gmail is **domain-wide delegation** — impersonating a *real Google Workspace user* who already
+has a mailbox in a domain you administer (and consumer `@gmail.com` accounts can't be impersonated
+this way). The SA borrows a human's mailbox; it never owns one.
+
+If you actually want a programmatic mailbox — to sign up for things, or read incoming mail — you need
+a *real* mailbox: create a normal `@gmail.com` account and read it with **OAuth** + the Gmail API
+(this is the "sign up for free services" path), or use a Workspace user mailbox + delegation. Mental
+model: **a service account is a robot you can give *access to files* — not a robot with an *email
+address you can write to.***
+
 ## Deploying it (the agent shape)
 
 **The key is a password.** Anyone holding `credentials.json` *is* your robot. `.gitignore` it. Never
