@@ -189,14 +189,17 @@ The scope list is the only thing that changes per API. See the [scope table](#sc
 
 ---
 
-## It can't read a user's private inbox or Drive — that needs OAuth
+## It reaches files you share with it, not a whole account — that's OAuth's job
 
-Be honest about the boundary. A service account can touch files and calendars **it owns, or that
-were shared with it.** It **cannot** read *your personal* Gmail, your private calendar, or your whole
-Drive — because you can't "Share" all of that to a robot the way you share one file.
+Picture yourself as the person setting this up. The unit a service account works in is **one shared
+resource**: any individual Sheet, Doc, calendar, or Drive folder that someone has **Shared** to its
+email. It cannot reach **a whole account** — your entire Gmail inbox, your private calendar, all of
+your Drive — because there is no "Share" button for *"all of me."* That line, *one shared resource vs.
+a whole identity*, is the boundary.
 
-For **a user's own private data**, you need the browser-consent flow (**3-legged OAuth**): the human
-clicks "Allow" once, you save a token, you reuse it.
+When the thing you want to reach is a person's whole account (say, read *your own* Gmail), the right
+tool is the browser-consent flow (**3-legged OAuth**): that person clicks "Allow" once, you save the
+token, and you reuse it.
 
 ```python
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -221,10 +224,11 @@ arbitrary external Gmail accounts.
 
 ## A service account email can't receive mail — it's an identity, not a mailbox
 
-**No.** A service account's address (`name@project.iam.gserviceaccount.com`) is an *identity, not a
-mailbox.* The `iam.gserviceaccount.com` domain publishes no mail records (no MX), so anything sent to
-it hard-bounces — it goes nowhere. You **cannot** use it to sign up for a service that emails a
-confirmation link, and there's no inbox to read.
+People ask this wanting a throwaway address — *can my agent use its service-account email to sign up
+for some site and read the confirmation link?* The answer is no, and the reason is that the address
+is an *identity for calling Google APIs, not a mailbox.* The `iam.gserviceaccount.com` domain
+publishes no mail records (no MX), so a confirmation email sent there hard-bounces before it reaches
+anything. There is no inbox behind the address to open.
 
 The Gmail API doesn't change this: it never gives a service account its own inbox. The only way an SA
 touches Gmail is **domain-wide delegation** — impersonating a *real Google Workspace user* who already
