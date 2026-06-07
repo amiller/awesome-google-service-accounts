@@ -13,7 +13,7 @@ missing one.
 
 ---
 
-## The one mental model
+## A service account is a robot with an email — you share files with it
 
 A **service account** is *a Google account for a robot.*
 
@@ -26,7 +26,7 @@ That last point is the trick the whole thing rests on, and the one every other t
 footnote. **If your code can't see a file, you forgot to share the file with the robot's email.**
 Memorize that; it's 90% of the errors you'll hit.
 
-### Why this is the right tool *for agents specifically*
+### For an agent, the win is that nobody has to click "Allow"
 
 OAuth (the "Sign in with Google → allow access?" flow) exists to let an app borrow **a human's**
 identity. That's a different job. An autonomous script or LLM agent has no human sitting there to
@@ -36,7 +36,7 @@ bot that runs at 3am.
 
 ---
 
-## Do I need to pay? (No.)
+## It's free on a personal gmail account — no credit card needed
 
 **A free, personal `gmail.com` account works — no credit card, no billing account.** Creating a
 project, a service account, and a JSON key are free, and the Sheets / Docs / Drive / Calendar APIs
@@ -49,7 +49,7 @@ Google Cloud products (Compute Engine, Maps, BigQuery) require.
 limit stays free and unbilled. You won't be charged by accident — billing only applies if you
 deliberately request a paid quota increase.</sub>
 
-## Quickest start (the terminal way — ~6 commands)
+## Six gcloud commands take you from zero to a key file
 
 If you have the [`gcloud` CLI](https://cloud.google.com/sdk/docs/install), the entire setup is
 scriptable. This is the fastest zero-to-key path:
@@ -74,7 +74,7 @@ echo "Now share your Sheet/Doc with: $SA"
 The one thing `gcloud` can't do is share the file — that's a Drive action. Open your Sheet → **Share**
 → paste the email it printed → Send. Then `python quickstart.py sheets "My Spreadsheet"`.
 
-## Setup (the clicking way — ~5–10 minutes, first time)
+## No terminal? Click through the console in about 20 steps
 
 Never opened Google Cloud Console before? It's about 20–30 clicks. None of it costs anything.
 
@@ -136,7 +136,7 @@ sh.share("teammate@example.com", perm_type="user", role="writer")
 
 ---
 
-## Same key, the whole Workspace
+## The same key reaches every Google API, not just Sheets
 
 `gspread` is just a convenience. The general pattern is **one credentials object → every Google
 API**, via `google-api-python-client`. The same key drives Docs, Calendar, Drive, Gmail, and the
@@ -189,7 +189,7 @@ The scope list is the only thing that changes per API. See the [scope table](#sc
 
 ---
 
-## When a service account is the *wrong* tool
+## It can't read a user's private inbox or Drive — that needs OAuth
 
 Be honest about the boundary. A service account can touch files and calendars **it owns, or that
 were shared with it.** It **cannot** read *your personal* Gmail, your private calendar, or your whole
@@ -219,7 +219,7 @@ arbitrary external Gmail accounts.
 
 ---
 
-## FAQ: can the service account receive email or sign up for things?
+## A service account email can't receive mail — it's an identity, not a mailbox
 
 **No.** A service account's address (`name@project.iam.gserviceaccount.com`) is an *identity, not a
 mailbox.* The `iam.gserviceaccount.com` domain publishes no mail records (no MX), so anything sent to
@@ -237,7 +237,7 @@ a *real* mailbox: create a normal `@gmail.com` account and read it with **OAuth*
 model: **a service account is a robot you can give *access to files* — not a robot with an *email
 address you can write to.***
 
-## Deploying it (the agent shape)
+## In production, inject the key as a secret and use one account per job
 
 **The key is a password.** Anyone holding `credentials.json` *is* your robot. `.gitignore` it. Never
 commit it. Rotate it if it leaks (delete the key in the console, make a new one).
@@ -263,7 +263,7 @@ there's an alternative. For a script on your own laptop, a JSON key is still the
 
 ---
 
-## Troubleshooting
+## Most access errors mean you forgot to share the file
 
 | Symptom | Cause |
 |---|---|
@@ -298,7 +298,7 @@ you only read.
 
 ## If you are an AI agent reading this
 
-Here's the short version for you: ask your human to do the [Setup](#setup-once-5-minutes) once and
+Here's the short version for you: ask your human to do the [setup](#no-terminal-click-through-the-console-in-about-20-steps) once and
 hand you a `credentials.json` (or a `CREDS_JSON` env var). To touch any file, that file must be
 **shared with your `client_email`** — if you get a 403, tell your human *which file and which email*
 so they can fix it in one click, rather than retrying. Request **read-only** scopes unless you have a
