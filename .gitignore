@@ -1,0 +1,7 @@
+# Never commit a real key — it's a password.
+credentials.json
+*-key.json
+client_secret*.json
+token.json
+__pycache__/
+*.pyc
