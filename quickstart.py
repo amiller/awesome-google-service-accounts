@@ -7,7 +7,7 @@ and the target file/calendar SHARED with the service account's client_email.
 Usage:
   python quickstart.py sheets   "My Spreadsheet"
   python quickstart.py docs     <DOC_ID>
-  python quickstart.py calendar
+  python quickstart.py calendar <OWNER_EMAIL>   # the shared calendar's id is its owner's email
 """
 import sys
 
@@ -42,9 +42,9 @@ def docs(doc_id):
     print("Inserted a line at the top.")
 
 
-def calendar():
+def calendar(calendar_id):
     svc = _build("calendar", "v3", ["https://www.googleapis.com/auth/calendar.readonly"])
-    events = svc.events().list(calendarId="primary", maxResults=10,
+    events = svc.events().list(calendarId=calendar_id, maxResults=10,
                                singleEvents=True, orderBy="startTime").execute()
     for e in events.get("items", []):
         start = e["start"].get("dateTime", e["start"].get("date"))
@@ -58,6 +58,6 @@ if __name__ == "__main__":
     elif cmd == "docs":
         docs(sys.argv[2])
     elif cmd == "calendar":
-        calendar()
+        calendar(sys.argv[2])
     else:
         print(__doc__)

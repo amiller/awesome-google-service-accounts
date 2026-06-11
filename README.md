@@ -1,21 +1,28 @@
 # awesome-google-service-accounts
 
-**The cleanest way to give a script — or an AI agent — access to your Google Docs, Sheets, Drive, and Calendar.**
+A Google **service account** is a Google account for a script instead of a person. It's how you let a
+program — or an AI agent — read and write your Google Docs, Sheets, Drive, or Calendar without a
+browser popup, a "click to authorize" screen, or a refresh-token dance: you make an account for a
+robot, download its key, and share a file with it the way you'd share with a coworker.
 
-No browser popup. No "click to authorize." No refresh-token dance. You make a Google account for a
-robot, download its key, and **share a file with it like you'd share with a coworker.** That's the
-whole idea. This README teaches it end to end — enough for both an agent and the human caring for it
-to actually understand what's happening and why.
+Most people never reach for this. The usual way to give a program access to your Google data is
+through an *app* — you either trust someone else's app with your account, or stand up your own Google
+Cloud app (consent screen, OAuth client, verification) just to authorize yourself. That app
+machinery is built for serving *other people's* logins; using it to let your own agent touch your own
+documents is a lot of plumbing for a one-person job. A service account skips the app entirely — it's
+an identity you share a document *to*, like adding a coworker. You're just sharing your own file with
+your own agent.
 
-Oddly, there's no good single write-up of this. The tutorials are Sheets-only and predate agents;
-the "AI + Google Workspace" content is all OAuth-based MCP servers and no-code SaaS. So here's the
-missing one.
+This repo is an explainer for that, with runnable examples. It walks through what a service account
+is, how to set one up, what it can and can't reach, and how to drive the key from Python — written
+for both the person doing the setup and an agent that's been handed a key. It also ships as an
+installable agent skill — see [`SKILL.md`](SKILL.md).
 
 ---
 
 ## A service account is a robot with an email — you share files with it
 
-A **service account** is *a Google account for a robot.*
+Three things define it:
 
 - It has an email — `my-bot@my-project.iam.gserviceaccount.com` — just like you have one.
 - It logs in with a **key file** instead of a password.
@@ -28,11 +35,10 @@ Memorize that; it's 90% of the errors you'll hit.
 
 ### For an agent, the win is that nobody has to click "Allow"
 
-OAuth (the "Sign in with Google → allow access?" flow) exists to let an app borrow **a human's**
-identity. That's a different job. An autonomous script or LLM agent has no human sitting there to
-click "Allow," and you don't want it to. A service account is its *own* identity — headless, no
-consent screen, no human in the loop, no token expiry to babysit. That's exactly what you want for a
-bot that runs at 3am.
+OAuth — the "Sign in with Google → allow access?" flow — exists to let an app borrow **a human's**
+identity, so a human has to be there to click "Allow." An autonomous agent isn't. A service account
+is its *own* identity: headless, no consent screen, no token expiry to babysit — exactly what you
+want for a bot that runs at 3am.
 
 ---
 
@@ -106,7 +112,7 @@ Never opened Google Cloud Console before? It's about 20–30 clicks. None of it 
 
 ---
 
-## Sheets in four lines
+## Sheets in five lines
 
 ```python
 import gspread
@@ -128,7 +134,7 @@ The most common agent move is *appending a row* — a bot logging what it did to
 sh.sheet1.append_row(["2026-07-01 10:00", "agent-7", "summarized inbox", "ok"])
 ```
 
-You can even have the robot share files itself, since it owns/edits the ones you gave it:
+You can even have the robot share files itself, since it has edit access to the ones you shared with it:
 
 ```python
 sh.share("teammate@example.com", perm_type="user", role="writer")
@@ -171,35 +177,40 @@ docs.documents().batchUpdate(documentId=DOC_ID, body={"requests": [
 ```
 
 **Calendar** — list and create events. (You share a *calendar* with the robot's email under that
-calendar's settings → *Share with specific people* — same idea as sharing a file.)
+calendar's settings → *Share with specific people* — same idea as sharing a file. Sharing covers
+every event on the calendar, past and future; there is no per-event sharing to manage.)
 
 ```python
-events = calendar.events().list(calendarId="primary", maxResults=10).execute()
+events = calendar.events().list(calendarId="you@gmail.com", maxResults=10).execute()
 for e in events.get("items", []):
     print(e["start"].get("dateTime", e["start"].get("date")), e.get("summary"))
 
-calendar.events().insert(calendarId="primary", body={
+calendar.events().insert(calendarId="you@gmail.com", body={
     "summary": "Created by a robot",
     "start": {"dateTime": "2026-07-01T10:00:00-04:00"},
     "end":   {"dateTime": "2026-07-01T10:30:00-04:00"},
 }).execute()
 ```
 
+Two calendar-specific gotchas. First, the id of a shared calendar is its **owner's email** —
+`calendarId="primary"` means the robot's *own* calendar, which is empty. Second, a service account
+**cannot put attendees on an event**: Google rejects the call with `forbiddenForServiceAccounts`,
+and the only override is domain-wide delegation (below), which needs a Workspace admin. On a
+personal gmail account the robot can create, edit, and delete events on your calendar — but it can
+never send an invite to a person.
+
 The scope list is the only thing that changes per API. See the [scope table](#scope-reference).
 
 ---
 
-## It reaches files you share with it, not a whole account — that's OAuth's job
+## It can't read a user's private inbox or Drive — that needs OAuth
 
-Picture yourself as the person setting this up. The unit a service account works in is **one shared
-resource**: any individual Sheet, Doc, calendar, or Drive folder that someone has **Shared** to its
-email. It cannot reach **a whole account** — your entire Gmail inbox, your private calendar, all of
-your Drive — because there is no "Share" button for *"all of me."* That line, *one shared resource vs.
-a whole identity*, is the boundary.
+Be honest about the boundary. A service account can touch files and calendars **it owns, or that
+were shared with it.** It **cannot** read *your personal* Gmail, your private calendar, or your whole
+Drive — because you can't "Share" all of that to a robot the way you share one file.
 
-When the thing you want to reach is a person's whole account (say, read *your own* Gmail), the right
-tool is the browser-consent flow (**3-legged OAuth**): that person clicks "Allow" once, you save the
-token, and you reuse it.
+For **a user's own private data**, you need the browser-consent flow (**3-legged OAuth**): the human
+clicks "Allow" once, you save a token, you reuse it.
 
 ```python
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -218,28 +229,21 @@ arbitrary external Gmail accounts.
 |---|---|
 | Let a bot read/edit a Sheet, Doc, or Calendar I own | **Service account** + share the file with its email |
 | Read my *own* personal Gmail / private Calendar | **3-legged OAuth** (browser consent, save token) |
+| Have a bot send calendar invites to other people | **3-legged OAuth** (or domain-wide delegation in a Workspace org) |
 | A bot acting as *any user* in my Workspace org | **Domain-wide delegation** (admin-authorized) |
 
 ---
 
 ## A service account email can't receive mail — it's an identity, not a mailbox
 
-People ask this wanting a throwaway address — *can my agent use its service-account email to sign up
-for some site and read the confirmation link?* The answer is no, and the reason is that the address
-is an *identity for calling Google APIs, not a mailbox.* The `iam.gserviceaccount.com` domain
-publishes no mail records (no MX), so a confirmation email sent there hard-bounces before it reaches
-anything. There is no inbox behind the address to open.
+A service account's address (`name@project.iam.gserviceaccount.com`) is an *identity, not a mailbox.*
+The `iam.gserviceaccount.com` domain publishes no mail records (no MX), so anything sent to it
+hard-bounces. You **cannot** use it to sign up for a service that emails a confirmation link, and
+there's no inbox to read — the Gmail API never gives a service account one.
 
-The Gmail API doesn't change this: it never gives a service account its own inbox. The only way an SA
-touches Gmail is **domain-wide delegation** — impersonating a *real Google Workspace user* who already
-has a mailbox in a domain you administer (and consumer `@gmail.com` accounts can't be impersonated
-this way). The SA borrows a human's mailbox; it never owns one.
-
-If you actually want a programmatic mailbox — to sign up for things, or read incoming mail — you need
-a *real* mailbox: create a normal `@gmail.com` account and read it with **OAuth** + the Gmail API
-(this is the "sign up for free services" path), or use a Workspace user mailbox + delegation. Mental
-model: **a service account is a robot you can give *access to files* — not a robot with an *email
-address you can write to.***
+If you actually want a programmatic mailbox, make a normal `@gmail.com` account and read it with
+**OAuth** + the Gmail API. Mental model: **a service account is a robot you give *access to files* —
+not a robot with an *email address you can write to.***
 
 ## In production, inject the key as a secret and use one account per job
 
